@@ -1,0 +1,169 @@
+schema: '2.0'
+stages:
+  extract_market_data:
+    cmd: python src/data/extract_market_data.py
+    deps:
+    - path: src/data/extract_market_data.py
+      hash: md5
+      md5: 7556435e5e002c13c2bfeb57003ba33a
+      size: 5486
+    params:
+      params.yaml:
+        extract_market_data:
+          ticker: AAPL
+          fetch_start_date: '2015-12-01'
+          target_start_date: '2016-03-30'
+          end_date: '2024-05-09'
+          output_path: data/external/apple_technical_macro_features.csv
+    outs:
+    - path: data/external/apple_technical_macro_features.csv
+      hash: md5
+      md5: ae0dcd0b093078aa3fddec6f01aaf0e7
+      size: 272283
+  merge_news_1:
+    cmd: python src/data/merge_news_1.py
+    deps:
+    - path: data/external/apple_news_data.csv
+      hash: md5
+      md5: 8f7697e50b91a3e6f885d9d96d74b710
+      size: 104952507
+    - path: data/external/apple_technical_macro_features.csv
+      hash: md5
+      md5: ae0dcd0b093078aa3fddec6f01aaf0e7
+      size: 272283
+    - path: src/data/merge_news_1.py
+      hash: md5
+      md5: 41d12e2ce2ee4f261cf6bed4415e5c25
+      size: 5004
+    params:
+      params.yaml:
+        merge_news_1:
+          stock_dataset_path: data/external/apple_technical_macro_features.csv
+          news_dataset_path: data/external/apple_news_data.csv
+          output_path: data/interim/kaggle_technical_news.csv
+    outs:
+    - path: data/interim/kaggle_technical_news.csv
+      hash: md5
+      md5: 32119b5da50b87b7deb0be8aafd207f9
+      size: 2112312
+  merge_news_2:
+    cmd: python src/data/merge_news_2.py
+    deps:
+    - path: data/external/news.csv
+      hash: md5
+      md5: ca1520fee4576e4094a17273a13992ca
+      size: 2452002
+    - path: data/interim/kaggle_technical_news.csv
+      hash: md5
+      md5: 32119b5da50b87b7deb0be8aafd207f9
+      size: 2112312
+    - path: src/data/merge_news_2.py
+      hash: md5
+      md5: bace907ec8b6632fea743abcab718522
+      size: 4912
+    params:
+      params.yaml:
+        merge_news_2:
+          main_dataset_path: data/interim/kaggle_technical_news.csv
+          news_dataset_path: data/external/news.csv
+          output_path: data/interim/kaggle_github_technical_news.csv
+    outs:
+    - path: data/interim/kaggle_github_technical_news.csv
+      hash: md5
+      md5: 5cfa52a4dfcdd3c400ddea351b32a4d7
+      size: 4511340
+  merge_news_3:
+    cmd: python src/data/merge_news_3.py
+    deps:
+    - path: data/external/all_the_news_2.000.csv
+      hash: md5
+      md5: c7b24dffd250918cdd8f5957be459bb0
+      size: 75812426
+    - path: data/external/all_the_news_2.001.csv
+      hash: md5
+      md5: b12e22f758b66aca08239060d8b0dbfd
+      size: 71731393
+    - path: data/external/all_the_news_2.002.csv
+      hash: md5
+      md5: 357638d589acb5975a09a7b3832cf629
+      size: 72776251
+    - path: data/external/all_the_news_2.003.csv
+      hash: md5
+      md5: abb1d4acaa19c2f35f553841f2026ce8
+      size: 71727078
+    - path: data/interim/kaggle_github_technical_news.csv
+      hash: md5
+      md5: 5cfa52a4dfcdd3c400ddea351b32a4d7
+      size: 4511340
+    - path: src/data/merge_news_3.py
+      hash: md5
+      md5: df7acf02baaf705c00442060e0870b43
+      size: 6283
+    params:
+      params.yaml:
+        merge_news_3:
+          input_main_path: data/interim/kaggle_github_technical_news.csv
+          output_main_path: data/interim/all_news_merged_uncleaned.csv
+          checkpoint_file: data/interim/processing_checklist.json
+          large_news_files:
+          - data/external/all_the_news_2.000.csv
+          - data/external/all_the_news_2.001.csv
+          - data/external/all_the_news_2.002.csv
+          - data/external/all_the_news_2.003.csv
+    outs:
+    - path: data/interim/all_news_merged_uncleaned.csv
+      hash: md5
+      md5: 5d6dc0cb002b517fa083c61d5a7dab7c
+      size: 6513716
+    - path: data/interim/processing_checklist.json
+      hash: md5
+      md5: cf6cd5c0792cb38d711153d6d9d3eb81
+      size: 184
+  data_ingestion:
+    cmd: python src/data/data_ingestion.py
+    deps:
+    - path: data/interim/all_news_merged_uncleaned.csv
+      hash: md5
+      md5: 5d6dc0cb002b517fa083c61d5a7dab7c
+      size: 6513716
+    - path: src/data/data_ingestion.py
+      hash: md5
+      md5: 6bb208158456a45606a8fc57eec34cbd
+      size: 2088
+    params:
+      params.yaml:
+        data_ingestion:
+          input_path: data/interim/all_news_merged_uncleaned.csv
+          output_path: data/raw/final_raw_dataset.csv
+    outs:
+    - path: data/raw/final_raw_dataset.csv
+      hash: md5
+      md5: 00cafa9b4df88482c9ccfa9c8d9251e9
+      size: 6087828
+  data_preprocessing:
+    cmd: python src/data/data_preprocessing.py
+    deps:
+    - path: data/raw/final_raw_dataset.csv
+      hash: md5
+      md5: 00cafa9b4df88482c9ccfa9c8d9251e9
+      size: 6087828
+    - path: src/data/data_preprocessing.py
+      hash: md5
+      md5: e4b5dd5476c531e31fcf45fabdf312f6
+      size: 5509
+    params:
+      params.yaml:
+        preprocess_data:
+          input_path: data/raw/final_raw_dataset.csv
+          output_path: data/processed/cleaned_news_features.csv
+          checkpoint_file: data/processed/cleaning_state.json
+          chunk_size: 50000
+    outs:
+    - path: data/processed/cleaned_news_features.csv
+      hash: md5
+      md5: 77eaa5e816dc2bcffbbd51e59b57d602
+      size: 1780737
+    - path: data/processed/cleaning_state.json
+      hash: md5
+      md5: 0cc51a07c154955f629385dcda9e3c8c
+      size: 27

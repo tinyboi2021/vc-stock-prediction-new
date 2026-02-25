@@ -87,3 +87,9 @@ target/
 
 # Mypy cache
 .mypy_cache/
+
+# ALLOW DVC tracking files
+!*.dvc
+
+# Ignore virtual environments
+venv/

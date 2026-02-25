@@ -1,0 +1,43 @@
+# params.yaml
+# we are using data_ingestion file just like in the third merge
+extract_market_data:
+  ticker: "AAPL"
+  fetch_start_date: "2015-12-01"
+  target_start_date: "2016-03-30"
+  end_date: "2024-05-09"
+  output_path: "data/external/apple_technical_macro_features.csv"
+
+merge_news_1:
+  stock_dataset_path: "data/external/apple_technical_macro_features.csv"
+  news_dataset_path: "data/external/apple_news_data.csv"
+  output_path: "data/interim/kaggle_technical_news.csv"
+
+merge_news_2:
+  main_dataset_path: "data/interim/kaggle_technical_news.csv"
+  news_dataset_path: "data/external/news.csv"
+  output_path: "data/interim/kaggle_github_technical_news.csv"
+
+merge_news_3:
+  input_main_path: "data/interim/kaggle_github_technical_news.csv"
+  output_main_path: "data/interim/all_news_merged_uncleaned.csv" 
+  checkpoint_file: "data/interim/processing_checklist.json"
+  large_news_files:
+    - "data/external/all_the_news_2.000.csv"
+    - "data/external/all_the_news_2.001.csv"
+    - "data/external/all_the_news_2.002.csv"
+    - "data/external/all_the_news_2.003.csv"
+data_ingestion:
+  input_path: "data/interim/all_news_merged_uncleaned.csv"
+  output_path: "data/raw/final_raw_dataset.csv"
+
+preprocess_data:
+  input_path: "data/raw/final_raw_dataset.csv"
+  output_path: "data/processed/cleaned_news_features.csv"
+  checkpoint_file: "data/processed/cleaning_state.json"
+  chunk_size: 50000
+
+feature_engineering:
+  input_path: "data/processed/cleaned_news_features.csv"
+  output_path: "data/processed/final_sentiment_scored_dataset.csv"
+  model_repo: "QuantFactory/Meta-Llama-3-8B-Instruct-GGUF"
+  model_filename: "Meta-Llama-3-8B-Instruct.Q4_K_M.gguf"
