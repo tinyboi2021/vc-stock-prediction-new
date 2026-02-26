@@ -93,3 +93,16 @@ target/
 
 # Ignore virtual environments
 venv/
+
+# Ignore everything in this directory
+*
+# Except this file
+!.gitignore
+
+# ALLOW DVC tracking files
+!*.dvc
+
+# ALWAYS track DVC pipeline and parameter files
+!dvc.yaml
+!dvc.lock
+!params.yaml

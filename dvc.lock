@@ -167,3 +167,26 @@ stages:
       hash: md5
       md5: 0cc51a07c154955f629385dcda9e3c8c
       size: 27
+  feature_engineering:
+    cmd: python src/features/feature_engineering.py
+    deps:
+    - path: data/processed/cleaned_news_features.csv
+      hash: md5
+      md5: 77eaa5e816dc2bcffbbd51e59b57d602
+      size: 1780737
+    - path: src/features/feature_engineering.py
+      hash: md5
+      md5: 5fbbfa23a5a9586a9aa3014d45911d25
+      size: 4806
+    params:
+      params.yaml:
+        feature_engineering:
+          input_path: data/processed/cleaned_news_features.csv
+          output_path: data/processed/final_sentiment_scored_dataset.csv
+          model_repo: QuantFactory/Meta-Llama-3-8B-Instruct-GGUF
+          model_filename: Meta-Llama-3-8B-Instruct.Q4_K_M.gguf
+    outs:
+    - path: data/processed/final_sentiment_scored_dataset.csv
+      hash: md5
+      md5: a37f0c9b86e2c4b3aa0823c10f6f211c
+      size: 285807

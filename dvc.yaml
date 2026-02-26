@@ -65,3 +65,13 @@ stages:
     outs:
       - data/processed/cleaned_news_features.csv
       - data/processed/cleaning_state.json
+
+  feature_engineering:
+    cmd: python src/features/feature_engineering.py
+    deps:
+      - src/features/feature_engineering.py
+      - data/processed/cleaned_news_features.csv
+    params:
+      - feature_engineering
+    outs:
+      - data/processed/final_sentiment_scored_dataset.csv
