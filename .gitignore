@@ -93,3 +93,10 @@ target/
 
 # Ignore virtual environments
 venv/
+
+# run.py launcher — generated temp files
+_kaggle_*.py
+kernel-metadata.json
+.kaggle_dataset_staging/
+.last_dataset_hash
+Kaggle_Results/
