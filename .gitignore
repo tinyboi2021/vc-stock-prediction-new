@@ -93,3 +93,4 @@ target/
 
 # Ignore virtual environments
 venv/
+app_ui/InformerAI/
