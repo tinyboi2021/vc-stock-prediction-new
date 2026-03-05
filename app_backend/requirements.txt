@@ -1,0 +1,20 @@
+fastapi
+uvicorn
+redis
+python-multipart
+numpy
+pandas==2.2.0
+torch --index-url https://download.pytorch.org/whl/cu121
+torchvision --index-url https://download.pytorch.org/whl/cu121
+torchaudio --index-url https://download.pytorch.org/whl/cu121
+yfinance
+joblib
+ollama
+
+requests
+scikit-learn
+optuna
+ta
+matplotlib
+cloudpickle
+seaborn

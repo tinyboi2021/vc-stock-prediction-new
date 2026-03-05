@@ -1,0 +1,74 @@
+services:
+
+  # ── Ollama – LLM server (llama3 is auto-pulled on first start) ─────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: stock-ollama
+    # Expose on host so you can also query it directly / run `ollama pull`
+    ports:
+      - "11434:11434"
+    volumes:
+      # Persist downloaded models between container restarts
+      - ollama_data:/root/.ollama
+    # Pass ALL available NVIDIA GPUs into the container.
+    # Requires: NVIDIA Container Toolkit installed on the host +
+    #           Docker configured with the nvidia runtime.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [ gpu ]
+    # Pull llama3 the first time the container starts (no-op on subsequent runs
+    # because the model is already in the volume).
+    entrypoint: >
+      /bin/sh -c "
+        ollama serve &
+        sleep 5 &&
+        ollama pull llama3 &&
+        wait
+      "
+    healthcheck:
+      test: [ "CMD", "ollama", "list" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ── FastAPI backend ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ..
+      dockerfile: app_backend/Dockerfile
+    container_name: stock-inference-api
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Talk to the Ollama sidecar over the internal Docker network
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      redis:
+        condition: service_started
+      ollama:
+        condition: service_healthy
+    volumes:
+      # Live-mount main.py so code changes are picked up on container restart
+      - ../app_backend/main.py:/app/app_backend/main.py
+      # Mount model artifacts to avoid baking them into the image
+      - ../Saved_Models:/app/Saved_Models
+      - ../Saved_Scalers:/app/Saved_Scalers
+      - ../Paper_Replication_Results.csv:/app/Paper_Replication_Results.csv
+
+  # ── Redis cache ─────────────────────────────────────────────────────────────
+  redis:
+    image: redis:alpine
+    container_name: stock-redis-cache
+    ports:
+      - "6379:6379"
+
+volumes:
+  # Named volume so pulled models survive `docker-compose down`
+  ollama_data:
