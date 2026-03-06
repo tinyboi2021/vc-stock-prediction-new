@@ -33,12 +33,14 @@ import mlflow
 
 dagshub_token = "941879c4b4456ada2c76193a8f16aa79c955460b"
 
+MLFLOW_EXPERIMENT_NAME = "stock-prediction-updated"    # 🏆 Put your MLflow experiment name here!
+
 os.environ["MLFLOW_TRACKING_USERNAME"] = "tinyboi2021"
 os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 os.environ["MLFLOW_TRACKING_URI"] = "https://dagshub.com/tinyboi2021/vc-stock-prediction-new.mlflow"
 
 mlflow.set_tracking_uri(os.environ["MLFLOW_TRACKING_URI"])
-mlflow.set_experiment("stock_prediction_trial")
+mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
 print(f"MLflow Tracking URI set to: {mlflow.get_tracking_uri()}")
 
@@ -63,8 +65,9 @@ RUNNER_NAME = "Hareesh K S"            # Put your name here for MLflow tracking!
 # ==========================================
 # 1. CONFIGURATION & SEEDING
 # ==========================================
-
-DATA_PATH = "data/aapl_stock_sentiment_new_dataset_2017_2026.csv" 
+# --- PATHS & MLFLOW GLOBALS ---
+DATA_PATH      = "data/aapl_stock_sentiment_old_dataset_2016_2024.csv"
+DATASET_NAME   = os.path.basename(DATA_PATH)
 MODEL_SAVE_DIR = "./Saved_Models"
 os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
 PRED_SAVE_DIR = "./Prediction_Excel_Sheets"
@@ -100,12 +103,13 @@ def is_completed(scenario, lookback, horizon, model_name):
             f"params.Scenario = '{scenario}' and "
             f"params.Horizon = '{horizon}' and "
             f"params.Lookback = '{lookback}' and "
+            f"params.Dataset = '{DATASET_NAME}' and "
             f"tags.Runner = '{RUNNER_NAME}' and "
             f"status = 'FINISHED'"
         )
         
         # We need the experiment ID to search
-        exp = mlflow.get_experiment_by_name("NextDaySentimentPeak")
+        exp = mlflow.get_experiment_by_name(MLFLOW_EXPERIMENT_NAME)
         if exp is None:
             return False
             
@@ -736,7 +740,7 @@ def load_and_split_data(target_col='Close', max_lookback=96):
         mock_news_dates = np.random.choice(dates, mock_news_len)
         mock_sentiments = np.random.uniform(-1, 1, mock_news_len)
         
-        df_news = pd.DataFrame({'Date': mock_news_dates, 'Sentiment_Score': mock_sentiments})
+        df_news = pd.DataFrame({'Date': mock_news_dates, 'sentiment_score': mock_sentiments})
         df_stock = pd.DataFrame({
             'Date': dates,
             'Close': np.random.randn(2200).cumsum() + 100,
@@ -746,8 +750,8 @@ def load_and_split_data(target_col='Close', max_lookback=96):
             'Gold': np.random.randn(2200).cumsum(),
             'USDJPY': np.random.randn(2200).cumsum()
         })
-        df_full = df_stock.merge(df_news.groupby('Date')['Sentiment_Score'].mean().reset_index(), on='Date', how='left')
-        df_full['Sentiment_Score'] = df_full['Sentiment_Score'].fillna(0)
+        df_full = df_stock.merge(df_news.groupby('Date')['sentiment_score'].mean().reset_index(), on='Date', how='left')
+        df_full['sentiment_score'] = df_full['sentiment_score'].fillna(0)
     else:
         df_raw = pd.read_csv(DATA_PATH)
         
@@ -756,13 +760,13 @@ def load_and_split_data(target_col='Close', max_lookback=96):
         else:
             df_raw['Date'] = pd.to_datetime(df_raw.index)
 
-        if 'Sentiment_Score' in df_raw.columns:
+        if 'sentiment_score' in df_raw.columns:
             df_grouped = df_raw.groupby('Date').agg(
-                Sentiment_Score=('Sentiment_Score', 'mean')
+                sentiment_score=('sentiment_score', 'mean')
             ).reset_index()
-            df_technicals = df_raw.drop(columns=['Sentiment_Score']).groupby('Date').first().reset_index()
+            df_technicals = df_raw.drop(columns=['sentiment_score']).groupby('Date').first().reset_index()
             df_full = pd.merge(df_technicals, df_grouped, on='Date', how='left')
-            df_full['Sentiment_Score'] = df_full['Sentiment_Score'].fillna(0)
+            df_full['sentiment_score'] = df_full['sentiment_score'].fillna(0)
             if 'News_Volume' in df_full.columns:
                 df_full['News_Volume'] = df_full['News_Volume'].fillna(0)
         else:
@@ -770,8 +774,8 @@ def load_and_split_data(target_col='Close', max_lookback=96):
 
     df_full = df_full.sort_values('Date').reset_index(drop=True)
         
-    if 'Sentiment_Score' in df_full.columns:
-        df_full['Sentiment_Score'] = df_full['Sentiment_Score'].shift(1).fillna(0)
+    if 'sentiment_score' in df_full.columns:
+        df_full['sentiment_score'] = df_full['sentiment_score'].shift(1).fillna(0)
 
     n = len(df_full)
     val_start_idx  = int(n * 0.60)
@@ -809,7 +813,7 @@ def load_and_split_data(target_col='Close', max_lookback=96):
             return feature_cols.index(col_name)
         return None
 
-    sent_col_idx = get_numpy_idx('Sentiment_Score')
+    sent_col_idx = get_numpy_idx('sentiment_score')
     adx_col_idx  = get_numpy_idx('ADX')
     
     time_marks = time_features(df_full['Date'].dt)
@@ -1665,7 +1669,7 @@ def evaluate_naive_baseline(scenario, pred_len, test_data, scaler_target, test_o
     run_name = f"Naive_{scenario.replace(' ', '_')}_H{pred_len}"
     with mlflow.start_run(run_name=run_name):
         mlflow.set_tags(MLFLOW_TAGS)
-        mlflow.log_params({"Scenario": scenario, "Lookback": "All", "Horizon": pred_len, "Model": "Naive"})
+        mlflow.log_params({"Dataset": DATASET_NAME, "Scenario": scenario, "Lookback": "All", "Horizon": pred_len, "Model": "Naive"})
         mlflow.log_metrics({"Test_Scaled_MSE": mse_scaled, "Test_Scaled_MAE": mae_scaled, "Test_Real_MSE": mse_real, "Test_Real_MAE": mae_real})
         
     save_results_to_excel([result], OUTPUT_FILE)
@@ -1683,7 +1687,7 @@ def perform_hyperparameter_tuning(model_name, train_ds, val_ds, input_dim, pred_
             trial_tags = {
                 "source": "Python Script", "version": "1.1",
                 "models": model_name, "description": "Hyperparameter optimization trial",
-                "dataset": "AAPL_Multivariate", "horizon": pred_len,
+                "dataset": DATASET_NAME, "horizon": pred_len,
                 "lookback": train_ds.seq_len, "scenario": scenario,
                 "trial_number": trial.number, "runner": RUNNER_NAME,
                 "track": f"{scenario}_H{pred_len}"
@@ -1897,7 +1901,7 @@ def process_standalone_models(scenario, lookback, pred_len,
             full_tags = {
                 "source": "Python Pipeline", "version": "1.1",
                 "models": model_name, "description": "Primary Model Evaluation Run",
-                "dataset": "AAPL_Processed", "horizon": pred_len, "lookback": lookback,
+                "dataset": DATASET_NAME, "horizon": pred_len, "lookback": lookback,
                 "model": model_name, "scenario": scenario, "tta": is_tta,
                 "batch_size":  best_params.get('batch_size', 'N/A'),
                 "dropout":     best_params.get('dropout', 'N/A'),
@@ -1914,8 +1918,8 @@ def process_standalone_models(scenario, lookback, pred_len,
             }
             full_tags = {k: v for k, v in full_tags.items() if v != 'N/A'}
             mlflow.set_tags(full_tags)
-            mlflow.log_params({"Scenario": scenario, "Lookback": lookback, "Horizon": pred_len,
-                               "Model": model_name, "TTA": is_tta})
+            mlflow.log_params({"Dataset": DATASET_NAME, "Scenario": scenario, "Lookback": lookback, "Horizon": pred_len,
+                               "Model": model_name, "Loss": "LogCosh" if use_weighted_loss else "MSE"})
             mlflow.log_params(best_params) 
 
             # 4. Training Phase
@@ -2077,7 +2081,7 @@ def evaluate_ensembles(scenario, lookback, pred_len, results, trained_cache,
     patch_results  = [r for r in results if "PatchTST" in r['Model']]
     best_patch_name = min(patch_results, key=lambda x: x['Scaled MSE (%)'])['Model']
     
-    ColorLog.extreme(f"PHASE 2: DYNAMIC ENSEMBLE EVALUATION | L:{lookback} H:{pred_len}", color="#00FF00", border_color="#00FF00")
+    ColorLog.extreme(f"PHASE 2: DYNAMIC ENSEMBLE EVALUATION | L:{lookback} | H:{pred_len}", color="#00FF00", border_color="#00FF00")
 
     overlap_val_data  = np.concatenate([train_data[-lookback:], val_data], axis=0)
     overlap_val_marks = np.concatenate([train_marks[-lookback:], val_marks], axis=0)
@@ -2175,7 +2179,7 @@ def evaluate_ensembles(scenario, lookback, pred_len, results, trained_cache,
                 "lookback": lookback, "scenario": scenario
             })
             mlflow.set_tags(ens_tags)
-            mlflow.log_params({"Scenario": scenario, "Lookback": lookback, "Horizon": pred_len, "Model": model_name})
+            mlflow.log_params({"Dataset": DATASET_NAME, "Scenario": scenario, "Lookback": lookback, "Horizon": pred_len, "Model": model_name})
             mlflow.log_params({"Weight_Inf": weights[0], "Weight_PT": weights[1],
                                "Weight_LSTM": weights[2], "Weight_TCN": weights[3], "Weight_Naive": weights[4]})
             mlflow.log_metrics({"Test_Scaled_MSE": mse_scaled, "Test_Scaled_MAE": mae_scaled,
@@ -2209,8 +2213,9 @@ def save_overall_best_model(scenario, lookback, pred_len, all_results_for_window
     with mlflow.start_run(run_name=run_name):
         MLFLOW_TAGS = {"Runner": RUNNER_NAME, "Track": f"{scenario}_H{pred_len}"}
         mlflow.set_tags(MLFLOW_TAGS)
-        mlflow.log_params({"Scenario": scenario, "Lookback": lookback, "Horizon": pred_len,
-                           "Champion_Model": best_overall_name})
+        mlflow.log_params({"Dataset": DATASET_NAME, "Scenario": scenario, "Lookback": lookback, "Horizon": pred_len,
+                           "Model": best_overall_name, "Loss": "LogCosh" if use_weighted_loss else "MSE"})
+        
         mlflow.log_metric("Champion_Scaled_MSE", best_overall_run['Scaled MSE (%)'])
         
         registry_name = f"Champion_{clean_scenario}_H{pred_len}"
@@ -2408,7 +2413,7 @@ def main():
 
     ColorLog.extreme("LOADING & SPLITTING DATASET", color="#FFD700", border_color="#FFD700")
     
-    df_temp   = pd.read_csv(DATA_PATH, nrows=0) if os.path.exists(DATA_PATH) else pd.DataFrame(columns=['Close', 'RSI', 'SMA', 'ADX', 'Gold', 'USDJPY', 'Sentiment_Score'])
+    df_temp   = pd.read_csv(DATA_PATH, nrows=0) if os.path.exists(DATA_PATH) else pd.DataFrame(columns=['Close', 'RSI', 'SMA', 'ADX', 'Gold', 'USDJPY', 'sentiment_score'])
     raw_cols  = [c for c in df_temp.columns if c not in ['Date', 'Regime']]
     if 'Close' in raw_cols:
         raw_cols.insert(0, raw_cols.pop(raw_cols.index('Close')))
@@ -2447,7 +2452,7 @@ def main():
                 ColorLog.extreme(f"LOOKBACK WINDOW STARTED: {lookback} DAYS", color="#32CD32", border_color="#32CD32")
                 
                 current_feature_cols = raw_cols if scenario == "With Sentiment" \
-                    else [c for c in raw_cols if c != 'Sentiment_Score']
+                    else [c for c in raw_cols if c != 'sentiment_score']
                 
                 window_results = run_ablation_retraining(
                     scenario, lookback, pred_len,

@@ -50,19 +50,37 @@ dvc repro
 ```
 *If everything is up-to-date, DVC will say `Data and pipelines are up to date` and exit.*
 
-#### 2. Run a Specific Stage
-If you only want to test a specific part of the pipeline (e.g., you changed the technical indicator logic and want to test data extraction):
+#### 2. Force a Clean Run
+If you want to forcefully test the execution of all scripts from scratch, bypassing the cache:
 ```bash
-dvc repro extract_market_data
+dvc repro --force
 ```
 
-#### 3. Check Pipeline Status
+#### 3. Run a Specific Stage
+If you only want to test a specific part of the pipeline (e.g., just testing the news scraping):
+```bash
+dvc repro scrape_news
+```
+*Wait for this to finish, then you can inspect the raw data before moving on to:*
+```bash
+dvc repro calculate_sentiment
+```
+
+#### 4. Check Pipeline Status
 To see which stages have changed or need to be rerun:
 ```bash
 dvc status
 ```
 
-#### 4. Managing Data (Remote Storage)
+#### 5. Verify and Commit the Results
+Once the pipeline finishes and you are happy with the generated datasets, commit the state to DVC and Git:
+```bash
+dvc commit
+git add dvc.lock dvc.yaml
+git commit -m "Update data pipeline and generate new datasets"
+```
+
+#### 6. Managing Data (Remote Storage)
 If the project is connected to remote storage (like an AWS S3 bucket, Google Drive, or DagsHub storage), you can pull the latest data without having to run the scripts yourself:
 ```bash
 # Pull datasets from the remote server

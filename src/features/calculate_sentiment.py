@@ -1,18 +1,11 @@
 # ==========================================
 # 0. INSTALL DEPENDENCIES
 # ==========================================
-#!pip uninstall -y llama-cpp-python
-
-# !pip install llama-cpp-python \
-#   --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu121 \
-#   --upgrade --force-reinstall --no-cache-dir
-
-# !pip install huggingface_hub pandas numpy
+# !pip install pandas numpy requests
 
 import pandas as pd
 import numpy as np
-from llama_cpp import Llama
-from huggingface_hub import hf_hub_download
+import requests
 import ast
 import os
 import json
@@ -137,24 +130,17 @@ print(f"Total rows in dataset: {len(df)}")
 print(f"Columns: {df.columns.tolist()}\n")
 
 # ==========================================
-# 3. LOAD LLAMA 3 MODEL
+# 3. CONFIGURE OLLAMA MODEL
 # ==========================================
 print("="*70)
-print("LOADING LLAMA 3 MODEL")
+print("CONFIGURING OLLAMA")
 print("="*70)
 
-model_name_or_path = "QuantFactory/Meta-Llama-3-8B-Instruct-GGUF"
-model_basename = "Meta-Llama-3-8B-Instruct.Q4_K_M.gguf"
+OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = "llama3" # the precise tag you have installed on Ollama
 
-model_path = hf_hub_download(repo_id=model_name_or_path, filename=model_basename)
-
-llm = Llama(
-    model_path=model_path,
-    n_ctx=8192,
-    n_gpu_layers=-1,
-    verbose=False
-)
-print("✅ Model Loaded Successfully!\n")
+print(f"✅ Targeting local Ollama model: {OLLAMA_MODEL}")
+print(f"   Endpoint: {OLLAMA_URL}\n")
 
 # ==========================================
 # 4. ARTICLE PREPROCESSING
@@ -198,14 +184,17 @@ Article: "{article}"<|eot_id|>
 <|start_header_id|>assistant<|end_header_id|>"""
 
     try:
-        output = llm(
-            prompt, 
-            max_tokens=60, 
-            stop=["<|eot_id|>"], 
-            echo=False,
-            temperature=0.3
-        )
-        content = output['choices'][0]['text'].strip()
+        response = requests.post(OLLAMA_URL, json={
+            "model": OLLAMA_MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.3,
+                "num_predict": 60
+            }
+        })
+        response.raise_for_status()
+        content = response.json().get('response', '').strip()
         
         json_match = re.search(r'\{[^}]+\}', content)
         if json_match:
@@ -253,14 +242,17 @@ Article: "{article}"<|eot_id|>
 <|start_header_id|>assistant<|end_header_id|>"""
 
     try:
-        output = llm(
-            prompt, 
-            max_tokens=60, 
-            stop=["<|eot_id|>"], 
-            echo=False,
-            temperature=0.3
-        )
-        content = output['choices'][0]['text'].strip()
+        response = requests.post(OLLAMA_URL, json={
+            "model": OLLAMA_MODEL,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.3,
+                "num_predict": 60
+            }
+        })
+        response.raise_for_status()
+        content = response.json().get('response', '').strip()
         
         json_match = re.search(r'\{[^}]+\}', content)
         if json_match:

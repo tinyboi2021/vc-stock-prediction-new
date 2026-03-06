@@ -21,6 +21,10 @@ import subprocess
 import textwrap
 from pathlib import Path
 
+# Enable ANSI colors on Windows CMD/PowerShell
+if os.name == 'nt':
+    os.system("color")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION — edit these to match your Kaggle account and project
 # ─────────────────────────────────────────────────────────────────────────────
@@ -29,10 +33,23 @@ KAGGLE_USERNAME   = "hareeshks"           # Your Kaggle username
 KAGGLE_KERNEL_ID  = "stock-prediction-model"     # Slug for the kernel (no spaces)
 MAIN_SCRIPT       = "vcStockPredictionEnsemble.py"
 
+BASE_DIR = Path(__file__).parent.resolve()
+
+def get_dataset_file():
+    """Dynamically read DATA_PATH from vcStockPredictionEnsemble.py so it's the single source of truth."""
+    import re
+    try:
+        content = (BASE_DIR / MAIN_SCRIPT).read_text(encoding="utf-8")
+        match = re.search(r'^DATA_PATH\s*=\s*["\']([^"\']+)["\']', content, flags=re.MULTILINE)
+        if match:
+            return match.group(1)
+    except Exception:
+        pass
+    print("Warning: Could not dynamically extract DATA_PATH. Falling back to default.")
+    return "data/aapl_stock_sentiment_new_dataset_2017_2026.csv"
+
 # Path to the dataset used by the main script (relative to this file)
-# Change this whenever you switch datasets — the launcher detects changes
-# automatically and re-uploads only when the file has changed.
-DATASET_FILE      = "data/aapl_stock_sentiment_old_dataset_2017_2024.csv"
+DATASET_FILE      = get_dataset_file()
 
 # Kaggle Dataset slug where your CSV will be uploaded
 # Format: "<your-username>/<dataset-slug>"
@@ -43,8 +60,6 @@ DATASET_SLUG      = "vc-stock-data"
 DATASET_HASH_CACHE = ".last_dataset_hash"
 
 # ─────────────────────────────────────────────────────────────────────────────
-
-BASE_DIR = Path(__file__).parent.resolve()
 
 CYAN    = "\033[96m"
 GREEN   = "\033[92m"
