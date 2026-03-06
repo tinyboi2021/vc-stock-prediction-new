@@ -76,7 +76,7 @@ def prompt_choice():
 
 
 def run_local():
-    print(f"\n{GREEN}{BOLD}▶ Running locally on your GPU...{RESET}\n")
+    print(f"\n{GREEN}{BOLD} > Running locally on your GPU...{RESET}\n")
     script = BASE_DIR / MAIN_SCRIPT
     cmd = [sys.executable, str(script)]
     try:
@@ -227,7 +227,7 @@ else:
     )
 
     if new_content == content:
-        print(f"  {YELLOW}⚠ Could not find DATA_PATH line to patch — uploading script as-is.{RESET}")
+        print(f"  {YELLOW}WARN Could not find DATA_PATH line to patch — uploading script as-is.{RESET}")
         
     # Kaggle CLI on Windows crashes if the script contains emojis (like 🚨 or 🎯)
     # when reading it with the default 'charmap' (cp1252).
@@ -242,17 +242,17 @@ else:
     safe_content = pip_injection + safe_content
     
     patched_path.write_text(safe_content, encoding="utf-8")
-    print(f"  {GREEN}✓ Script patched: DATA_PATH → {kaggle_data_path} (emojis stripped, pip injected){RESET}")
+    print(f"  {GREEN}OK Script patched: DATA_PATH -> {kaggle_data_path} (emojis stripped, pip injected){RESET}")
 
     return patched_path
 
 def run_kaggle():
-    print(f"\n{YELLOW}{BOLD}▶ Preparing Kaggle P100 run...{RESET}\n")
+    print(f"\n{YELLOW}{BOLD} > Preparing Kaggle P100 run...{RESET}\n")
     check_kaggle_cli()
 
     dataset_path = BASE_DIR / DATASET_FILE
     if not dataset_path.exists():
-        print(f"  {RED}✗ Dataset not found at: {dataset_path}{RESET}")
+        print(f"  {RED}FAIL Dataset not found at: {dataset_path}{RESET}")
         print(f"  Update DATASET_FILE in run.py to point to your CSV.")
         sys.exit(1)
 
@@ -276,17 +276,17 @@ def run_kaggle():
     meta["code_file"] = patched_script.name
     meta_file = staging_dir / "kernel-metadata.json"
     meta_file.write_text(json.dumps(meta, indent=2))
-    print(f"  {GREEN}✓ kernel-metadata.json stashed in cleanly.{RESET}")
+    print(f"  {GREEN}OK kernel-metadata.json stashed in cleanly.{RESET}")
 
     # ── Step 4: Push kernel to Kaggle ─────────────────────────────────────
-    print(f"\n{YELLOW}▶ Pushing kernel to Kaggle...{RESET}")
+    print(f"\n{YELLOW} > Pushing kernel to Kaggle...{RESET}")
     # Push ONLY the staging directory, not the whole massive project folder!
     push_cmd = ["kaggle", "kernels", "push", "-p", str(staging_dir)]
     result = subprocess.run(push_cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"  {RED}✗ Kernel push failed:{RESET}\n{result.stderr}")
+        print(f"  {RED}FAIL Kernel push failed:{RESET}\n{result.stderr}")
         sys.exit(1)
-    print(f"  {GREEN}✓ Kernel pushed successfully!{RESET}")
+    print(f"  {GREEN}OK Kernel pushed successfully!{RESET}")
     print(f"\n  {CYAN}Monitor:  https://www.kaggle.com/code/{KAGGLE_USERNAME}/{KAGGLE_KERNEL_ID}{RESET}")
 
     # ── Step 5: Offer to tail the kernel status ────────────────────────────
@@ -324,17 +324,18 @@ def tail_kaggle_status():
 
 def download_kaggle_output():
     kernel_ref = f"{KAGGLE_USERNAME}/{KAGGLE_KERNEL_ID}"
-    out_dir = BASE_DIR / "Kaggle_Results"
-    out_dir.mkdir(exist_ok=True)
-    print(f"\n{YELLOW}▶ Downloading kernel output to ./Kaggle_Results/ ...{RESET}")
+    # Download directly into the project root so it merges with 
+    # ./Saved_Models/, ./.Results/, and ./Prediction_Excel_Sheets/ seamlessly!
+    out_dir = BASE_DIR
+    print(f"\n{YELLOW} > Downloading Kaggle output to local directories...{RESET}")
     result = subprocess.run(
         ["kaggle", "kernels", "output", kernel_ref, "-p", str(out_dir)],
         capture_output=True, text=True
     )
     if result.returncode == 0:
-        print(f"  {GREEN}✓ Results saved to ./Kaggle_Results/{RESET}")
+        print(f"  {GREEN}OK Results downloaded successfully!{RESET}")
     else:
-        print(f"  {RED}✗ Download failed:{RESET}\n{result.stderr}")
+        print(f"  {RED}FAIL Download failed:{RESET}\n{result.stderr}")
 
 
 def main():

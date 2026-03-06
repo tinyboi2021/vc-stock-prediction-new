@@ -1,77 +1,30 @@
 stages:
-  extract_market_data:
-    cmd: python src/data/extract_market_data.py
+  scrape_news:
+    cmd: python src/data/scrape_news.py
     deps:
-      - src/data/extract_market_data.py
+      - src/data/scrape_news.py
     params:
-      - extract_market_data
+      - scrape_news
     outs:
-      - data/external/apple_technical_macro_features.csv
+      - data/raw/apple_news_data.csv
 
-  merge_news_1:
-    cmd: python src/data/merge_news_1.py
+  calculate_sentiment:
+    cmd: python src/features/calculate_sentiment.py
     deps:
-      - src/data/merge_news_1.py
-      - data/external/apple_technical_macro_features.csv
-      - data/external/apple_news_data.csv
+      - src/features/calculate_sentiment.py
+      - data/raw/apple_news_data.csv
     params:
-      - merge_news_1
+      - calculate_sentiment
     outs:
-      - data/interim/kaggle_technical_news.csv
+      - data/processed/apple_news_sentiment.csv
 
-  merge_news_2:
-    cmd: python src/data/merge_news_2.py
+  build_datasets:
+    cmd: python src/data/build_datasets.py
     deps:
-      - src/data/merge_news_2.py
-      - data/interim/kaggle_technical_news.csv
-      - data/external/news.csv
+      - src/data/build_datasets.py
+      - data/processed/apple_news_sentiment.csv
     params:
-      - merge_news_2
+      - build_datasets
     outs:
-      - data/interim/kaggle_github_technical_news.csv
-
-  merge_news_3:
-    cmd: python src/data/merge_news_3.py
-    deps:
-      - src/data/merge_news_3.py
-      - data/interim/kaggle_github_technical_news.csv
-      - data/external/all_the_news_2.000.csv
-      - data/external/all_the_news_2.001.csv
-      - data/external/all_the_news_2.002.csv
-      - data/external/all_the_news_2.003.csv
-    params:
-      - merge_news_3
-    outs:
-      - data/interim/all_news_merged_uncleaned.csv
-      - data/interim/processing_checklist.json
-
-  data_ingestion:
-    cmd: python src/data/data_ingestion.py
-    deps:
-      - src/data/data_ingestion.py
-      - data/interim/all_news_merged_uncleaned.csv
-    params:
-      - data_ingestion
-    outs:
-      - data/raw/final_raw_dataset.csv
-
-  data_preprocessing:
-    cmd: python src/data/data_preprocessing.py
-    deps:
-      - src/data/data_preprocessing.py
-      - data/raw/final_raw_dataset.csv
-    params:
-      - preprocess_data
-    outs:
-      - data/processed/cleaned_news_features.csv
-      - data/processed/cleaning_state.json
-
-  feature_engineering:
-    cmd: python src/features/feature_engineering.py
-    deps:
-      - src/features/feature_engineering.py
-      - data/processed/cleaned_news_features.csv
-    params:
-      - feature_engineering
-    outs:
-      - data/processed/final_sentiment_scored_dataset.csv
+      - data/processed/dataset_small.csv
+      - data/processed/dataset_large.csv

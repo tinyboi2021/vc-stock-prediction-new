@@ -56,8 +56,8 @@ optuna.logging.set_verbosity(optuna.logging.INFO)
 # Tom T: SCENARIO = "Without Sentiment" | HORIZON = 8
 # Hareesh K S: SCENARIO = "Without Sentiment" | HORIZON = 16
 
-TARGET_SCENARIO = "With Sentiment"  # Options: "With Sentiment" OR "Without Sentiment"
-TARGET_HORIZON = 16       # Options: 1, 8, or 16
+TARGET_SCENARIO = ["With Sentiment", "Without Sentiment"]  # Options: "With Sentiment" OR "Without Sentiment"
+TARGET_HORIZON = [1, 8, 16]       # Options: 1, 8, or 16
 RUNNER_NAME = "Hareesh K S"            # Put your name here for MLflow tracking!
 
 # ==========================================
@@ -65,7 +65,6 @@ RUNNER_NAME = "Hareesh K S"            # Put your name here for MLflow tracking!
 # ==========================================
 
 DATA_PATH = "data/aapl_stock_sentiment_new_dataset_2017_2026.csv" 
-OUTPUT_FILE = f".Results/Results_{TARGET_SCENARIO.replace(' ', '_')}_H{TARGET_HORIZON}.xlsx"
 MODEL_SAVE_DIR = "./Saved_Models"
 os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
 PRED_SAVE_DIR = "./Prediction_Excel_Sheets"
@@ -81,12 +80,8 @@ EPOCHS = 300
 PATIENCE = 20
 N_TRIALS = 100
 
-# Create global tracking dict for MLflow
-MLFLOW_TAGS = {"Runner": RUNNER_NAME, "Track": f"{TARGET_SCENARIO}_H{TARGET_HORIZON}"}
-
 # --- Checkpoint & Extended Excel Configurations ---
 CHECKPOINT_FILE = "./execution_checkpoint.csv"
-SUMMARY_EXCEL_FILE = f"./Best_Models_Summary_{TARGET_SCENARIO.replace(' ', '_')}_H{TARGET_HORIZON}.xlsx"
 
 # Enable system metrics logging (CPU, RAM, GPU) in MLflow if supported
 try:
@@ -1617,6 +1612,9 @@ def setup_scenario_context(scenario, train_vals_full, train_regimes_full,
 
 
 def evaluate_naive_baseline(scenario, pred_len, test_data, scaler_target, test_overlap_len, OUTPUT_FILE):
+    # Dynamically tracking tags for this specific scenario/horizon
+    MLFLOW_TAGS = {"Runner": RUNNER_NAME, "Track": f"{scenario}_H{pred_len}"}
+    
     ColorLog.extreme(f"EVALUATING NAIVE BASELINE (H={pred_len})", color="#A9A9A9", border_color="#A9A9A9")
     cprint(f"<br>{ColorLog.OKCYAN}➤ Scenario: {scenario} | Horizon: {pred_len} | Method: Naive Persistence{ColorLog.ENDC}")    
     target_data   = test_data[:, 0]
@@ -1823,7 +1821,7 @@ def process_standalone_models(scenario, lookback, pred_len,
                                val_data, val_marks, val_regs,
                                current_test_data, current_test_marks, current_test_regs,
                                input_dim, current_sent_idx, current_adx_idx,
-                               use_weighted_loss, scaler_target, standalone_configs, feature_cols, scaler_cov): 
+                               use_weighted_loss, scaler_target, standalone_configs, feature_cols, scaler_cov, output_file): 
     """Phase 1: Tunes, builds, trains, and evaluates all standalone models."""
     results, trained_cache = [], {} 
     inf_params_cache,  inf_epoch_cache  = None, None
@@ -2030,7 +2028,7 @@ def process_standalone_models(scenario, lookback, pred_len,
                 "Uncertainty": uncertainty,    "PICP": picp
             })
                 
-        save_results_to_excel([res], OUTPUT_FILE)
+        save_results_to_excel([res], output_file)
         results.append(res)
         mark_completed(scenario, lookback, pred_len, model_name)
         
@@ -2070,7 +2068,7 @@ def evaluate_ensembles(scenario, lookback, pred_len, results, trained_cache,
                        train_data, train_marks, train_regs,
                        val_data, val_marks, val_regs,
                        current_test_data, current_test_marks, current_test_regs,
-                       current_sent_idx, current_adx_idx, scaler_target):
+                       current_sent_idx, current_adx_idx, scaler_target, output_file):
     """Phase 2: Computes Dynamic Inverse-MSE weights for ALL models, including Naive."""
     
     inf_results    = [r for r in results if "Informer" in r['Model'] or "wo_Gen" in r['Model']]
@@ -2170,7 +2168,7 @@ def evaluate_ensembles(scenario, lookback, pred_len, results, trained_cache,
                
         run_name = f"{model_name}_{scenario.replace(' ', '_')}_L{lookback}_H{pred_len}"
         with mlflow.start_run(run_name=run_name):
-            ens_tags = MLFLOW_TAGS.copy()
+            ens_tags = {"Runner": RUNNER_NAME, "Track": f"{scenario}_H{pred_len}"}
             ens_tags.update({
                 "models_selected_in_ensemble": models_in_ensemble,
                 "model": model_name, "horizon": pred_len,
@@ -2183,7 +2181,7 @@ def evaluate_ensembles(scenario, lookback, pred_len, results, trained_cache,
             mlflow.log_metrics({"Test_Scaled_MSE": mse_scaled, "Test_Scaled_MAE": mae_scaled,
                                 "Test_Real_MSE": mse_real, "Test_Real_MAE": mae_real})
             
-        save_results_to_excel([res], OUTPUT_FILE)
+        save_results_to_excel([res], output_file)
         ensemble_results.append(res)
         mark_completed(scenario, lookback, pred_len, model_name)
 
@@ -2209,6 +2207,7 @@ def save_overall_best_model(scenario, lookback, pred_len, all_results_for_window
     
     run_name = f"CHAMPION_{best_overall_name}_{clean_scenario}_L{lookback}_H{pred_len}"
     with mlflow.start_run(run_name=run_name):
+        MLFLOW_TAGS = {"Runner": RUNNER_NAME, "Track": f"{scenario}_H{pred_len}"}
         mlflow.set_tags(MLFLOW_TAGS)
         mlflow.log_params({"Scenario": scenario, "Lookback": lookback, "Horizon": pred_len,
                            "Champion_Model": best_overall_name})
@@ -2242,6 +2241,7 @@ def save_overall_best_model(scenario, lookback, pred_len, all_results_for_window
             "Naive_real_mae":        naive_run.get('Real MAE')
         })
 
+    SUMMARY_EXCEL_FILE = f"./Best_Models_Summary_{clean_scenario}_H{pred_len}.xlsx"
     df_summary = pd.DataFrame([summary_data])
     if os.path.exists(SUMMARY_EXCEL_FILE):
         df_exist = pd.read_excel(SUMMARY_EXCEL_FILE)
@@ -2257,7 +2257,7 @@ def run_ablation_retraining(scenario, lookback, pred_len,
                             train_data, train_regs, val_data, val_regs, val_overlap_len,
                             train_marks_full, val_marks_full, test_data, test_marks_full, test_regs,
                             input_dim, current_sent_idx, current_adx_idx, 
-                            use_weighted_loss, scaler_target, test_overlap_len, feature_cols, scaler_cov): 
+                            use_weighted_loss, scaler_target, test_overlap_len, feature_cols, scaler_cov, output_file): 
     
     # 1. Prepare Data Alignment
     full_train_vals, full_train_marks, full_train_regs, current_test_data, current_test_marks, current_test_regs = \
@@ -2310,7 +2310,7 @@ def run_ablation_retraining(scenario, lookback, pred_len,
         val_data, val_marks_full, val_regs, 
         current_test_data, current_test_marks, current_test_regs,
         input_dim, current_sent_idx, current_adx_idx,
-        use_weighted_loss, scaler_target, standalone_configs, feature_cols, scaler_cov 
+        use_weighted_loss, scaler_target, standalone_configs, feature_cols, scaler_cov, output_file
     )
 
     # 4. Phase 2: Dynamic Ensembles
@@ -2319,7 +2319,7 @@ def run_ablation_retraining(scenario, lookback, pred_len,
         full_train_vals, full_train_marks, full_train_regs,
         val_data, val_marks_full, val_regs, 
         current_test_data, current_test_marks, current_test_regs,
-        current_sent_idx, current_adx_idx, scaler_target
+        current_sent_idx, current_adx_idx, scaler_target, output_file
     )
     
     results.extend(ensemble_results)
@@ -2395,9 +2395,9 @@ def main():
     else:
         total_length = len(pd.read_csv(DATA_PATH))
         
-    prediction_horizons = [TARGET_HORIZON]
+    prediction_horizons = TARGET_HORIZON if isinstance(TARGET_HORIZON, list) else [TARGET_HORIZON]
     lookback_windows    = [96, 32, 16]
-    scenarios           = [TARGET_SCENARIO]
+    scenarios           = TARGET_SCENARIO if isinstance(TARGET_SCENARIO, list) else [TARGET_SCENARIO]
     max_lookback_needed = max(lookback_windows)
 
     ColorLog.info("Mode: Static Train/Val/Test Split Enabled")
@@ -2435,9 +2435,13 @@ def main():
             )
 
         for pred_len in prediction_horizons:
+            # Dynamically set the output file for this specific scenario and horizon
+            current_output_file = f".Results/Results_{scenario.replace(' ', '_')}_H{pred_len}.xlsx"
+            os.makedirs(os.path.dirname(current_output_file), exist_ok=True)
+            
             ColorLog.extreme(f"HORIZON STARTED: {pred_len} DAYS", color="#00BFFF", border_color="#00BFFF")
             
-            evaluate_naive_baseline(scenario, pred_len, test_data, scaler_target, te_overlap, OUTPUT_FILE)
+            evaluate_naive_baseline(scenario, pred_len, test_data, scaler_target, te_overlap, current_output_file)
 
             for lookback in lookback_windows:
                 ColorLog.extreme(f"LOOKBACK WINDOW STARTED: {lookback} DAYS", color="#32CD32", border_color="#32CD32")
@@ -2452,7 +2456,8 @@ def main():
                     test_data, test_marks_full, test_regs,
                     input_dim, current_sent_idx, current_adx_idx, 
                     use_weighted_loss, scaler_target, te_overlap,
-                    current_feature_cols, current_scaler_cov
+                    current_feature_cols, current_scaler_cov,
+                    current_output_file
                 )
                 
                 all_metrics.extend(window_results)
