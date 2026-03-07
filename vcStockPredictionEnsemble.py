@@ -790,8 +790,12 @@ def load_and_split_data(target_col='Close', max_lookback=96):
 
     ColorLog.extreme("DETECTING MARKET REGIMES (GMM)", color="#8A2BE2", border_color="#8A2BE2")
     returns = np.diff(np.log(df_full[target_col].values + 1e-8))
-    volatility_raw = pd.Series(returns).rolling(window=20).std().bfill().values.reshape(-1, 1)
-    volatility = np.vstack([volatility_raw[0], volatility_raw]) 
+    # Prepend 0 to make returns same length as dataframe
+    returns = np.concatenate([[0], returns])
+    
+    volatility = pd.Series(returns).rolling(window=20).std()
+    # Fill rolling NaNs with the first valid observation, and if all NaN, fill with 0
+    volatility = volatility.bfill().fillna(0).values.reshape(-1, 1)
 
     train_end = train_slice.stop
     gmm = GaussianMixture(n_components=3, random_state=42).fit(volatility[:train_end])
@@ -2408,6 +2412,32 @@ def main():
     ColorLog.info("Mode: Static Train/Val/Test Split Enabled")
     ColorLog.section("STARTING EVALUATION")
     ColorLog.extreme("PIPELINE INITIALIZED", color="#FFFFFF", border_color="#FFFFFF")
+
+    # --- Pre-flight DagsHub Check ---
+    ColorLog.extreme("PRE-FLIGHT DAGSHUB CHECK", color="#00BFFF", border_color="#00BFFF")
+    try:
+        exp = mlflow.get_experiment_by_name(MLFLOW_EXPERIMENT_NAME)
+        if exp is not None:
+            query = f"params.Dataset = '{DATASET_NAME}' and tags.Runner = '{RUNNER_NAME}' and status = 'FINISHED'"
+            completed_runs = mlflow.search_runs(experiment_ids=[exp.experiment_id], filter_string=query)
+            
+            num_completed = len(completed_runs) if not completed_runs.empty else 0
+            
+            # Predict total runs:
+            # 1 Naive model per (Scenario x Horizon)
+            # 20 Deep Learning/Ensemble models per (Scenario x Horizon x Lookback)
+            # (16 Standalone + 3 Ensembles + 1 Champion)
+            total_expected_runs = len(scenarios) * len(prediction_horizons) * (1 + (len(lookback_windows) * 20))
+            num_remaining = max(0, total_expected_runs - num_completed)
+            
+            print(f"  [i] Total Expected Pipeline Runs : {total_expected_runs}")
+            print(f"  [i] Already Completed on DagsHub : {num_completed}")
+            print(f"  [i] Remaining Runs to Process    : {num_remaining}\n")
+        else:
+            print("  [!] MLflow Experiment not found yet. Starting fresh!\n")
+    except Exception as e:
+        print(f"  [!] Could not fetch pre-flight DagsHub stats ({e}).\n")
+    # --------------------------------
 
     all_metrics = []
 

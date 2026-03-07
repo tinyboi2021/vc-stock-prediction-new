@@ -127,14 +127,17 @@ def get_cached_hash() -> str:
     return ""
 
 
-def save_hash(md5: str):
-    (BASE_DIR / DATASET_HASH_CACHE).write_text(md5)
+def save_hash(dataset_path: Path, md5: str):
+    record = f"{dataset_path.name}:{md5}"
+    (BASE_DIR / DATASET_HASH_CACHE).write_text(record)
 
 
 def dataset_needs_upload(dataset_path: Path) -> bool:
     current_hash = file_md5(dataset_path)
-    cached_hash  = get_cached_hash()
-    if current_hash != cached_hash:
+    current_record = f"{dataset_path.name}:{current_hash}"
+    cached_record  = get_cached_hash()
+    
+    if current_record != cached_record:
         print(f"  {YELLOW}Dataset has changed (or is new). Will upload to Kaggle.{RESET}")
         return True
     print(f"  {GREEN}Dataset unchanged — skipping upload.{RESET}")
@@ -150,6 +153,8 @@ def upload_dataset_to_kaggle(dataset_path: Path):
       3. Calls `kaggle datasets create` or `kaggle datasets version`
     """
     staging_dir = BASE_DIR / ".kaggle_dataset_staging"
+    if staging_dir.exists():
+        shutil.rmtree(staging_dir)
     staging_dir.mkdir(exist_ok=True)
 
     # Copy the CSV into staging
@@ -167,27 +172,31 @@ def upload_dataset_to_kaggle(dataset_path: Path):
 
     print(f"\n{YELLOW}▶ Uploading dataset '{dataset_path.name}' to Kaggle...{RESET}")
 
-    # Try to create; if it already exists, push a new version instead
-    create_cmd = ["kaggle", "datasets", "create", "-p", str(staging_dir), "--dir-mode", "zip"]
     version_cmd = ["kaggle", "datasets", "version", "-p", str(staging_dir),
                    "-m", f"Updated: {dataset_path.name}", "--dir-mode", "zip"]
+    create_cmd = ["kaggle", "datasets", "create", "-p", str(staging_dir), "--dir-mode", "zip"]
 
-    result = subprocess.run(create_cmd, capture_output=True, text=True)
-    if result.returncode == 0:
+    # Kaggle CLI is notorious for returning exit code 0 even on failure. 
+    # Try pushing a version first (most common case).
+    res_version = subprocess.run(version_cmd, capture_output=True, text=True)
+    output_version_lower = (res_version.stdout + res_version.stderr).lower()
+    
+    if "does not exist" in output_version_lower or "not found" in output_version_lower or "404" in output_version_lower:
+        print(f"  Dataset doesn't exist yet. Creating new dataset...")
+        res_create = subprocess.run(create_cmd, capture_output=True, text=True)
+        output_create_lower = (res_create.stdout + res_create.stderr).lower()
+        if "error" in output_create_lower and "already in use" not in output_create_lower:
+             print(f"  {RED}✗ Creation failed:{RESET}\n{res_create.stdout}\n{res_create.stderr}")
+             sys.exit(1)
         print(f"  {GREEN}✓ Dataset created successfully.{RESET}")
-    elif "already exists" in result.stderr.lower() or "already exists" in result.stdout.lower():
-        print(f"  Dataset already exists — pushing a new version...")
-        result2 = subprocess.run(version_cmd, capture_output=True, text=True)
-        if result2.returncode != 0:
-            print(f"  {RED}✗ Version push failed:{RESET}\n{result2.stderr}")
-            sys.exit(1)
-        print(f"  {GREEN}✓ Dataset version pushed successfully.{RESET}")
-    else:
-        print(f"  {RED}✗ Upload failed:{RESET}\n{result.stderr}")
+    elif "error" in output_version_lower and "success" not in output_version_lower:
+        print(f"  {RED}✗ Version push failed:{RESET}\n{res_version.stdout}\n{res_version.stderr}")
         sys.exit(1)
+    else:
+        print(f"  {GREEN}✓ Dataset version pushed successfully.{RESET}")
 
     # Cache the hash so we don't re-upload unnecessarily
-    save_hash(file_md5(dataset_path))
+    save_hash(dataset_path, file_md5(dataset_path))
 
 
 def build_kernel_metadata() -> dict:
@@ -227,19 +236,22 @@ def patch_script_data_path() -> Path:
     dynamic_search_code = f'''
 import os
 import glob
-search_path = glob.glob("/kaggle/input/**/{dataset_filename}", recursive=True)
+search_path = glob.glob(f"/kaggle/input/**/{dataset_filename}", recursive=True)
 if search_path:
     DATA_PATH = search_path[0]
 else:
-    DATA_PATH = "/kaggle/input/{DATASET_SLUG}/{dataset_filename}"
+    DATA_PATH = f"/kaggle/input/{DATASET_SLUG}/{dataset_filename}"
 '''.strip()
     
-    new_content = re.sub(
-        r'^(DATA_PATH\s*=\s*)["\'].*?["\']',
-        dynamic_search_code,
-        content,
-        flags=re.MULTILINE
-    )
+    # We already extracted the EXACT dataset_file string earlier in run.py via get_dataset_file()
+    # We can just literally replace the exact line to be safe!
+    target_line_match = re.search(r'^[ \t]*DATA_PATH\s*=\s*["\'].*?["\']', content, flags=re.MULTILINE)
+    
+    if target_line_match:
+        exact_line = target_line_match.group(0)
+        new_content = content.replace(exact_line, dynamic_search_code)
+    else:
+        new_content = content
 
     if new_content == content:
         print(f"  {YELLOW}WARN Could not find DATA_PATH line to patch — uploading script as-is.{RESET}")

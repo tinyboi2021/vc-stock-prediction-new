@@ -190,3 +190,15 @@ stages:
       hash: md5
       md5: a37f0c9b86e2c4b3aa0823c10f6f211c
       size: 285807
+  scrape_news:
+    cmd: python src/data/scrape_news.py
+    deps:
+    - path: src/data/scrape_news.py
+      hash: md5
+      md5: 5e788a5c7c5e2713d000e937a3866336
+      size: 42082
+    outs:
+    - path: data/raw/apple_news_data.csv
+      hash: md5
+      md5: 1d31124c1ffe9f57e60d573b50edbbc3
+      size: 18760544

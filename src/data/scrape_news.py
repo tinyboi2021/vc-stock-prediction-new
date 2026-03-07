@@ -1005,20 +1005,31 @@ def run():
     mode = None
     base_df = None
     
-    if os.path.exists(INPUT_DATASET):
+    if os.path.exists(OUTPUT_FILE):
         try:
-            base_df = pd.read_csv(INPUT_DATASET)
-            print(f"   ✅ Input file found: {INPUT_DATASET}")
-            print(f"   → Running STRATEGIC BACKFILL MODE")
+            base_df = pd.read_csv(OUTPUT_FILE)
+            print(f"   ✅ Previous output file found: {OUTPUT_FILE}")
+            print(f"   → Running STRATEGIC BACKFILL MODE (Resuming)")
             mode = "backfill"
         except Exception as e:
-            print(f"   ⚠️  Error reading: {str(e)}")
-            print(f"   → Falling back to BULK MODE")
+            print(f"   ⚠️  Error reading output file: {str(e)}")
+            mode = None
+            
+    if mode is None:
+        if os.path.exists(INPUT_DATASET):
+            try:
+                base_df = pd.read_csv(INPUT_DATASET)
+                print(f"   ✅ Input file found: {INPUT_DATASET}")
+                print(f"   → Running STRATEGIC BACKFILL MODE")
+                mode = "backfill"
+            except Exception as e:
+                print(f"   ⚠️  Error reading: {str(e)}")
+                print(f"   → Falling back to BULK MODE")
+                mode = "bulk"
+        else:
+            print(f"   ℹ️  No input file")
+            print(f"   → Running BULK MODE")
             mode = "bulk"
-    else:
-        print(f"   ℹ️  No input file")
-        print(f"   → Running BULK MODE")
-        mode = "bulk"
     
     # ========== RUN ==========
     if mode == "bulk":
@@ -1046,6 +1057,7 @@ def run():
         })
     
     final_df = pd.DataFrame(rows)
+    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
     final_df.to_csv(OUTPUT_FILE, index=False)
     
     print(f"   ✅ Saved: {OUTPUT_FILE}")

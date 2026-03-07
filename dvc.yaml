@@ -3,8 +3,6 @@ stages:
     cmd: python src/data/scrape_news.py
     deps:
       - src/data/scrape_news.py
-    params:
-      - scrape_news
     outs:
       - data/raw/apple_news_data.csv
 
@@ -13,8 +11,6 @@ stages:
     deps:
       - src/features/calculate_sentiment.py
       - data/raw/apple_news_data.csv
-    params:
-      - calculate_sentiment
     outs:
       - data/processed/apple_news_sentiment.csv
 
@@ -23,8 +19,6 @@ stages:
     deps:
       - src/data/build_datasets.py
       - data/processed/apple_news_sentiment.csv
-    params:
-      - build_datasets
     outs:
       - data/processed/dataset_small.csv
       - data/processed/dataset_large.csv

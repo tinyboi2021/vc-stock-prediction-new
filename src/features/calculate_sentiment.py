@@ -419,12 +419,14 @@ else:
         print(f"{'='*70}\n")
 
         if count % checkpoint_interval == 0:
+            os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
             df.to_csv(output_file_path, index=False)
             print(f"✅ Checkpoint saved to {output_file_path}")
             print(f"   {count}/{total_rows} rows processed in this session")
             print(f"   {total_dataset_rows - total_rows + count}/{total_dataset_rows} total rows completed\n")
 
     # Final save
+    os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
     df.to_csv(output_file_path, index=False)
     print(f"\n{'='*70}")
     print(f"✅ COMPLETE! Final dataset saved to {output_file_path}")

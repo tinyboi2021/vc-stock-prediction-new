@@ -6,7 +6,7 @@ The Apple stock prediction data pipeline has been successfully streamlined and m
 
 We systematically adapted the provided reference scripts to fit the current project constraints:
 1. **Scraping (`src/data/scrape_news.py`)**: Extracted from `multiApiNewsArticleScraping.py`. Handles multi-API parallel news scraping specifically optimized for Apple (AAPL).
-2. **Sentiment Analysis (`src/features/calculate_sentiment.py`)**: Extracted from `sentimentScoreNewsArticle.py`. Ingests the news text and passes it to the local Llama 3 GGUF model via `llama_cpp`, outputting aggregated daily sentiment scores.
+2. **Sentiment Analysis (`src/features/calculate_sentiment.py`)**: Extracted from `sentimentScoreNewsArticle.py`. Ingests the news text and passes it to the local Ollama API (Llama 3 model), outputting aggregated daily sentiment scores.
 3. **Dataset Synthesis (`src/data/build_datasets.py`)**: Adapted from `stockDataBuilder.py`. Downloads stock data, technical indicators, commodities (Gold, USD/JPY), and custom FRED macroeconomic indicators (CPI, Interest Rates, VIX). It merges everything with the sentiment scores.
 
 ## 2. DVC Pipeline Integration
@@ -52,3 +52,6 @@ The `build_datasets.py` pipeline was executed locally to confirm its operational
 - **`dataset_large.csv` Outputs**: 28 total attributes incorporating the complex, customized stationarity modifiers, VIX indices, and categorical event markers (like *Federal reserve announcements* and *Supply chain disruption scores*).
 
 Finally, `project_working.md` was rewritten to document the new 3-stage model.
+
+**⚠️ Important Pre-flight Check:** 
+Since the `calculate_sentiment.py` stage uses Ollama, ensure you have the Ollama server running locally (`ollama run llama3`) before you run `dvc repro`, otherwise the pipeline will fail at stage 2!
