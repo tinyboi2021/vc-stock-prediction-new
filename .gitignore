@@ -100,3 +100,4 @@ kernel-metadata.json
 .kaggle_dataset_staging/
 .last_dataset_hash
 Kaggle_Results/
+kaggle.json

@@ -19,7 +19,7 @@ input_file_path = "data/raw/apple_news_data.csv"
 previous_output_path = "data/processed/apple_news_sentiment.csv"
 output_file_path = "data/processed/apple_news_sentiment.csv"
 
-checkpoint_interval = 25
+checkpoint_interval = 10
 
 # Article processing limits
 MAX_ARTICLE_LENGTH = 3000
@@ -306,7 +306,8 @@ def calculate_row_aggregated_sentiment(articles_list_str):
             'sentiment_mean': 0.0,
             'sentiment_std': 0.0,
             'volume': 0,
-            'high_conf_ratio': 0.0
+            'high_conf_ratio': 0.0,
+            'dominant_driver': 'None'
         }
 
     if not articles:
@@ -314,7 +315,8 @@ def calculate_row_aggregated_sentiment(articles_list_str):
             'sentiment_mean': 0.0,
             'sentiment_std': 0.0,
             'volume': 0,
-            'high_conf_ratio': 0.0
+            'high_conf_ratio': 0.0,
+            'dominant_driver': 'None'
         }
 
     scores = []
